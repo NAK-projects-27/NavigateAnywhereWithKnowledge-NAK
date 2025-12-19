@@ -28,7 +28,7 @@ export default function Home() {
             <div style={{ width:44,height:44,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center", background: "linear-gradient(135deg,var(--neon-cyan),var(--neon-indigo))", boxShadow: "0 10px 30px rgba(0,224,255,0.06)" }}>
               <Plane size={20} color="#031024" />
             </div>
-            <div style={{ fontWeight:800, fontSize:18, color:"#eaf6ff" }}>NAK Travel</div>
+            <div style={{ fontWeight:800, fontSize:18, color:"#eaf6ff" }}>NAK</div>
           </Link>
 
           <div style={{ display: "flex", gap: 10 }}>
