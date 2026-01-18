@@ -1,5 +1,5 @@
 import { useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import supabase from "../api/supabaseClient";
 import { User, Mail, Calendar, MapPin, LogOut, Edit2, Save, X, Sparkles } from "lucide-react";
@@ -15,45 +15,93 @@ export default function Profile() {
   const [bio, setBio] = useState("");
 
   useEffect(() => {
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { 
+      navigate("/auth"); 
+      return; 
+    }
     fetchProfile();
     // eslint-disable-next-line
   }, [user]);
 
   async function fetchProfile(){
     try {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
       if (error && error.code !== "PGRST116") throw error;
+      
       if (data) {
-        setProfile(data); setFullName(data.full_name||""); setBio(data.bio||"");
+        setProfile(data); 
+        setFullName(data.full_name || ""); 
+        setBio(data.bio || "");
       } else {
-        const newProfile = { id: user.id, email: user.email, full_name: user.user_metadata?.full_name||"", created_at: new Date().toISOString() };
-        const { data: created } = await supabase.from("profiles").insert([newProfile]).select().single();
-        setProfile(created); setFullName(created.full_name||"");
+        const newProfile = { 
+          id: user.id, 
+          email: user.email, 
+          full_name: user.user_metadata?.full_name || "", 
+          created_at: new Date().toISOString() 
+        };
+        const { data: created } = await supabase
+          .from("profiles")
+          .insert([newProfile])
+          .select()
+          .single();
+        setProfile(created); 
+        setFullName(created.full_name || "");
       }
-    } catch(e){ console.error(e) }
-    finally{ setLoading(false) }
+    } catch(e){ 
+      console.error(e) 
+    } finally { 
+      setLoading(false) 
+    }
   }
 
   async function handleUpdate(e){
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from("profiles").update({ full_name: fullName, bio, updated_at: new Date().toISOString() }).eq("id", user.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ 
+          full_name: fullName, 
+          bio, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", user.id);
+      
       if (error) throw error;
-      setProfile(prev=>({...prev, full_name: fullName, bio}));
+      
+      setProfile(prev => ({...prev, full_name: fullName, bio}));
       setEditing(false);
-    } catch(e){ alert("Failed"); console.error(e) } finally { setLoading(false) }
+    } catch(e){ 
+      alert("Failed to update profile"); 
+      console.error(e) 
+    } finally { 
+      setLoading(false) 
+    }
   }
 
-  async function handleLogout(){ await supabase.auth.signOut(); navigate("/"); }
+  async function handleLogout(){ 
+    await supabase.auth.signOut(); 
+    navigate("/"); 
+  }
 
   if (loading) return (
     <div className="app-center">
       <div style={{ textAlign:"center" }} className="card">
         <div style={{ fontSize:18, fontWeight:700, marginBottom:8 }}>Loading profile…</div>
         <div className="small" style={{ marginBottom:10 }}>Hang tight — fetching your data</div>
-        <div style={{ width:60, height:60, borderRadius:12, margin:"0 auto", background:"linear-gradient(90deg,var(--neon-cyan),var(--neon-indigo))", boxShadow:"0 10px 40px rgba(0,224,255,0.12)"}}/>
+        <div style={{ 
+          width:60, 
+          height:60, 
+          borderRadius:12, 
+          margin:"0 auto", 
+          background:"linear-gradient(90deg,var(--neon-cyan),var(--neon-indigo))", 
+          boxShadow:"0 10px 40px rgba(0,224,255,0.12)"
+        }}/>
       </div>
     </div>
   );
@@ -61,18 +109,41 @@ export default function Profile() {
   return (
     <div style={{ padding:28 }}>
       <div className="card">
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+        <div style={{ 
+          display:"flex", 
+          justifyContent:"space-between", 
+          alignItems:"center", 
+          marginBottom:18 
+        }}>
           <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-            <div className="avatar">{profile?.full_name?.[0] || <User size={44} />}</div>
+            <div className="avatar">
+              {profile?.full_name?.[0] || <User size={44} />}
+            </div>
             <div>
-              <div style={{ fontWeight:800, fontSize:20 }}>{profile?.full_name || "Traveler"}</div>
-              <div className="small" style={{ marginTop:6 }}><Mail size={14} style={{ marginRight:8 }} /> {user?.email}</div>
+              <div style={{ fontWeight:800, fontSize:20 }}>
+                {profile?.full_name || "Traveler"}
+              </div>
+              <div className="small" style={{ marginTop:6 }}>
+                <Mail size={14} style={{ marginRight:8 }} /> 
+                {user?.email}
+              </div>
             </div>
           </div>
 
           <div style={{ display:"flex", gap:10 }}>
-            <button onClick={() => setEditing(!editing)} className="btn-ghost"><Edit2 size={16} /> {editing ? "Cancel" : "Edit"}</button>
-            <button onClick={handleLogout} className="btn-ghost" style={{ color:"#ff9aa2", borderColor:"rgba(255,100,110,0.06)" }}><LogOut size={16} /> Logout</button>
+            <button 
+              onClick={() => setEditing(!editing)} 
+              className="btn-ghost"
+            >
+              <Edit2 size={16} /> {editing ? "Cancel" : "Edit"}
+            </button>
+            <button 
+              onClick={handleLogout} 
+              className="btn-ghost" 
+              style={{ color:"#ff9aa2", borderColor:"rgba(255,100,110,0.06)" }}
+            >
+              <LogOut size={16} /> Logout
+            </button>
           </div>
         </div>
 
@@ -80,7 +151,9 @@ export default function Profile() {
           <div>
             <div style={{ marginBottom:14 }} className="card">
               <div style={{ fontWeight:700, marginBottom:6 }}>About</div>
-              <div className="small" style={{ color:"var(--muted)" }}>{profile?.bio || "No bio set."}</div>
+              <div className="small" style={{ color:"var(--muted)" }}>
+                {profile?.bio || "No bio set."}
+              </div>
             </div>
 
             <div className="card">
@@ -95,7 +168,9 @@ export default function Profile() {
                 </div>
                 <div className="stat" style={{ gridColumn:"1 / -1" }}>
                   <div className="small">Member since</div>
-                  <div style={{ marginTop:6 }}>{new Date(profile?.created_at).toLocaleDateString()}</div>
+                  <div style={{ marginTop:6 }}>
+                    {new Date(profile?.created_at).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -105,10 +180,67 @@ export default function Profile() {
             {!editing && (
               <div className="card">
                 <div style={{ fontWeight:700, marginBottom:8 }}>Your dashboard</div>
-                <div className="small" style={{ marginBottom:12 }}>Start planning a trip or discover places.</div>
+                <div className="small" style={{ marginBottom:12 }}>
+                  Start planning a trip or discover places.
+                </div>
                 <div style={{ display:"flex", gap:10 }}>
                   <button className="btn">Create Itinerary</button>
-                  <button className="btn-ghost">Explore</button>
+                  <Link to="/destination/paris" className="btn-ghost">Explore Paris</Link>
+                </div>
+                
+                {/* Quick destination links */}
+                <div style={{ 
+                  marginTop: 16, 
+                  paddingTop: 16, 
+                  borderTop: "1px solid rgba(255,255,255,0.04)" 
+                }}>
+                  <div className="small" style={{ marginBottom: 8, fontWeight: 600 }}>
+                    ✈️ Popular Destinations:
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Link 
+                      to="/destination/paris" 
+                      className="btn-ghost" 
+                      style={{ fontSize: 13, padding: "6px 12px" }}
+                    >
+                      🗼 Paris
+                    </Link>
+                    <Link 
+                      to="/destination/tokyo" 
+                      className="btn-ghost" 
+                      style={{ fontSize: 13, padding: "6px 12px" }}
+                    >
+                      🗾 Tokyo
+                    </Link>
+                    <Link 
+                      to="/destination/london" 
+                      className="btn-ghost" 
+                      style={{ fontSize: 13, padding: "6px 12px" }}
+                    >
+                      🏰 London
+                    </Link>
+                    <Link 
+                      to="/destination/newyork" 
+                      className="btn-ghost" 
+                      style={{ fontSize: 13, padding: "6px 12px" }}
+                    >
+                      🗽 New York
+                    </Link>
+                    <Link 
+                      to="/destination/dubai" 
+                      className="btn-ghost" 
+                      style={{ fontSize: 13, padding: "6px 12px" }}
+                    >
+                      🏜️ Dubai
+                    </Link>
+                    <Link 
+                      to="/destination/bali" 
+                      className="btn-ghost" 
+                      style={{ fontSize: 13, padding: "6px 12px" }}
+                    >
+                      🏝️ Bali
+                    </Link>
+                  </div>
                 </div>
               </div>
             )}
@@ -117,15 +249,36 @@ export default function Profile() {
               <form onSubmit={handleUpdate} className="card">
                 <div style={{ marginBottom:12 }}>
                   <label className="small">Full name</label>
-                  <input className="input" value={fullName} onChange={(e)=>setFullName(e.target.value)} />
+                  <input 
+                    className="input" 
+                    value={fullName} 
+                    onChange={(e) => setFullName(e.target.value)} 
+                  />
                 </div>
                 <div style={{ marginBottom:12 }}>
                   <label className="small">Bio</label>
-                  <textarea className="input" value={bio} onChange={(e)=>setBio(e.target.value)} style={{ minHeight:120, resize:"vertical" }} />
+                  <textarea 
+                    className="input" 
+                    value={bio} 
+                    onChange={(e) => setBio(e.target.value)} 
+                    style={{ minHeight:120, resize:"vertical" }} 
+                  />
                 </div>
                 <div style={{ display:"flex", gap:12 }}>
-                  <button className="btn" type="submit" disabled={loading}><Save size={14} /> Save</button>
-                  <button className="btn-ghost" type="button" onClick={()=>setEditing(false)}><X size={14} /> Cancel</button>
+                  <button 
+                    className="btn" 
+                    type="submit" 
+                    disabled={loading}
+                  >
+                    <Save size={14} /> Save
+                  </button>
+                  <button 
+                    className="btn-ghost" 
+                    type="button" 
+                    onClick={() => setEditing(false)}
+                  >
+                    <X size={14} /> Cancel
+                  </button>
                 </div>
               </form>
             )}
