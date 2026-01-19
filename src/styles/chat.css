@@ -1,0 +1,396 @@
+/* ============================================
+   CHAT PAGE STYLES
+   ============================================
+   Styles for the chat interface
+   
+   LEARNING NOTE: CSS Structure
+   - Selector { property: value; }
+   - Classes start with .
+   - IDs start with #
+   - Nested selectors: .parent .child { }
+*/
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Slide in animation for messages */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Spin animation for loading icon */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pulse animation for typing indicator */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============================================
+   MAIN CHAT PAGE LAYOUT
+   ============================================ */
+
+.chat-page {
+  /* Display as grid with 2 columns */
+  display: grid;
+  
+  /* Left column: 280px wide */
+  /* Right column: takes remaining space */
+  grid-template-columns: 280px 1fr;
+  
+  /* Full viewport height minus any header/nav */
+  height: calc(100vh - 56px);
+  
+  /* Gap between columns */
+  gap: 0;
+  
+  /* Background color */
+  background: var(--bg-1);
+}
+
+/* ============================================
+   SIDEBAR (Conversations List)
+   ============================================ */
+
+.chat-sidebar {
+  /* Stack children vertically */
+  display: flex;
+  flex-direction: column;
+  
+  /* Glass morphism effect */
+  background: rgba(255,255,255,0.02);
+  
+  /* Border on the right */
+  border-right: 1px solid rgba(255,255,255,0.04);
+  
+  /* Prevent scrolling on the sidebar itself */
+  overflow: hidden;
+}
+
+/* Sidebar header (Back + New Chat buttons) */
+.sidebar-header {
+  /* Space between buttons */
+  display: flex;
+  gap: 8px;
+  
+  /* Padding around header */
+  padding: 16px;
+  
+  /* Border at bottom */
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+/* List of conversations */
+.conversations-list {
+  /* Take up remaining space */
+  flex: 1;
+  
+  /* Allow scrolling if many conversations */
+  overflow-y: auto;
+  
+  /* Padding around list */
+  padding: 12px;
+}
+
+/* Individual conversation item */
+.conversation-item {
+  /* Spacing */
+  padding: 12px;
+  margin-bottom: 8px;
+  
+  /* Rounded corners */
+  border-radius: 10px;
+  
+  /* Background */
+  background: rgba(255,255,255,0.02);
+  
+  /* Border */
+  border: 1px solid rgba(255,255,255,0.03);
+  
+  /* Pointer cursor on hover */
+  cursor: pointer;
+  
+  /* Smooth transitions */
+  transition: all 0.2s ease;
+  
+  /* Flexbox for title + delete button */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Hover effect */
+.conversation-item:hover {
+  /* Lighter background on hover */
+  background: rgba(255,255,255,0.04);
+  
+  /* Border color change */
+  border-color: rgba(0,224,255,0.15);
+  
+  /* Move up slightly */
+  transform: translateY(-2px);
+}
+
+/* Active (selected) conversation */
+.conversation-item.active {
+  /* Cyan gradient background */
+  background: linear-gradient(
+    135deg, 
+    rgba(0,224,255,0.12), 
+    rgba(110,86,255,0.08)
+  );
+  
+  /* Brighter border */
+  border-color: rgba(0,224,255,0.3);
+}
+
+/* Conversation title (icon + text) */
+.conversation-title {
+  /* Horizontal layout */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  /* Text styling */
+  font-size: 14px;
+  font-weight: 500;
+  color: #e6eef6;
+}
+
+/* Delete button (trash icon) */
+.delete-btn {
+  /* Remove default button styles */
+  background: none;
+  border: none;
+  
+  /* Color */
+  color: var(--muted);
+  
+  /* Pointer cursor */
+  cursor: pointer;
+  
+  /* Padding for click area */
+  padding: 4px;
+  
+  /* Rounded */
+  border-radius: 4px;
+  
+  /* Smooth transition */
+  transition: all 0.15s ease;
+  
+  /* Initially hidden */
+  opacity: 0;
+}
+
+/* Show delete button on hover */
+.conversation-item:hover .delete-btn {
+  opacity: 1;
+}
+
+/* Delete button hover effect */
+.delete-btn:hover {
+  background: rgba(255,100,100,0.2);
+  color: #ff9aa2;
+}
+
+/* Empty state when no conversations */
+.empty-conversations {
+  /* Center content */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  
+  /* Vertical spacing */
+  padding: 40px 20px;
+  
+  /* Text alignment */
+  text-align: center;
+}
+
+/* ============================================
+   MAIN CHAT AREA
+   ============================================ */
+
+.chat-main {
+  /* Stack children vertically */
+  display: flex;
+  flex-direction: column;
+  
+  /* Take full height */
+  height: 100%;
+  
+  /* Prevent overflow */
+  overflow: hidden;
+}
+
+/* Empty state in main area */
+.chat-empty-state {
+  /* Center everything */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  
+  /* Full height */
+  height: 100%;
+  
+  /* Padding */
+  padding: 40px;
+  
+  /* Text alignment */
+  text-align: center;
+}
+
+.empty-icon {
+  /* Large emoji */
+  font-size: 64px;
+  
+  /* Spacing below */
+  margin-bottom: 20px;
+}
+
+.empty-title {
+  /* Title styling */
+  font-size: 24px;
+  font-weight: 700;
+  color: #eaf6ff;
+  
+  /* Spacing */
+  margin-bottom: 8px;
+}
+
+.empty-subtitle {
+  /* Subtitle styling */
+  font-size: 15px;
+  color: var(--muted);
+  
+  /* Max width for readability */
+  max-width: 400px;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN (Mobile)
+   ============================================ */
+
+/* When screen is smaller than 768px */
+@media (max-width: 768px) {
+  .chat-page {
+    /* Stack vertically on mobile */
+    grid-template-columns: 1fr;
+    
+    /* Full height */
+    height: 100vh;
+  }
+  
+  .chat-sidebar {
+    /* Hide sidebar on mobile by default */
+    /* (You could add a toggle button to show/hide it) */
+    display: none;
+  }
+  
+  /* Or show sidebar in a modal/overlay */
+  /* (Advanced - requires JavaScript) */
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+/* Custom scrollbar for conversations list */
+.conversations-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversations-list::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.02);
+  border-radius: 3px;
+}
+
+.conversations-list::-webkit-scrollbar-thumb {
+  background: rgba(0,224,255,0.3);
+  border-radius: 3px;
+}
+
+.conversations-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,224,255,0.5);
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Focus states for keyboard navigation */
+.conversation-item:focus,
+.delete-btn:focus {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   KEY CSS CONCEPTS YOU LEARNED
+   ============================================
+
+1. **CSS GRID**
+   - display: grid
+   - grid-template-columns: defines column sizes
+   - Example: grid-template-columns: 280px 1fr
+     → First column 280px, second takes remaining space
+
+2. **FLEXBOX**
+   - display: flex
+   - flex-direction: row (horizontal) or column (vertical)
+   - justify-content: alignment along main axis
+   - align-items: alignment along cross axis
+
+3. **POSITIONING**
+   - position: relative, absolute, fixed, sticky
+   - top, right, bottom, left: offset from edges
+
+4. **TRANSITIONS**
+   - transition: property duration easing
+   - Example: transition: all 0.2s ease
+   - Creates smooth animations between states
+
+5. **PSEUDO-SELECTORS**
+   - :hover → when mouse is over element
+   - :active → when element is being clicked
+   - :focus → when element has keyboard focus
+   - ::before, ::after → add content before/after element
+
+6. **MEDIA QUERIES**
+   - @media (max-width: 768px) { }
+   - Apply styles only on certain screen sizes
+   - Used for responsive design
+
+7. **CSS VARIABLES**
+   - Define: --variable-name: value;
+   - Use: var(--variable-name)
+   - Example: color: var(--neon-cyan)
+
+8. **ANIMATIONS**
+   - @keyframes name { }
+   - animation: name duration easing infinite
+   - Example: animation: slideIn 0.3s ease-out
+
+*/

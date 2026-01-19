@@ -32,6 +32,7 @@ export default function Home() {
           </Link>
 
           <div style={{ display: "flex", gap: 10 }}>
+            {user && <Link to="/chat" className="btn-ghost">💬 Chat</Link>}
             <Link to={user ? "/profile" : "/auth"} className="btn-ghost">{user ? "Dashboard" : "Sign in"}</Link>
             {user ? null : <Link to="/auth" className="btn">Get Started</Link>}
           </div>

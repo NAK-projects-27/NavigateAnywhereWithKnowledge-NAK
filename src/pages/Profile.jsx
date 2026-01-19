@@ -184,6 +184,7 @@ export default function Profile() {
                   Start planning a trip or discover places.
                 </div>
                 <div style={{ display:"flex", gap:10 }}>
+                 <Link to="/chat" className="btn">💬 Chat with NAK AI</Link>
                   <button className="btn">Create Itinerary</button>
                   <Link to="/destination/paris" className="btn-ghost">Explore Paris</Link>
                 </div>
