@@ -113,7 +113,7 @@ export default function ChatInterface({conversationId}){
 
     return(
         <div style={styles.container}>
-            <div style={styles.messageArea}>
+            <div style={styles.messagesArea}>
                 {messages.length === 0 && (
                     <div style = {styles.emptyState}>
                         <div style={styles.emptyIcon}> ✨</div>
@@ -200,16 +200,19 @@ const styles = {
   container: {
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
-    maxHeight: '600px',
+    height: '100vh',  
+    maxHeight: '100vh', 
+    overflow: 'hidden', 
   },
   
   messagesArea: {
     flex: 1,
-    overflowY: 'auto',
+    overflowY: 'auto',  
+    overflowX: 'hidden', 
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
+    minHeight: 0,
   },
   
   emptyState: {
@@ -264,6 +267,7 @@ const styles = {
     padding: '16px',
     borderTop: '1px solid rgba(255,255,255,0.04)',
     background: 'rgba(255,255,255,0.02)',
+    flexShrink: 0,
   },
   
   input: {

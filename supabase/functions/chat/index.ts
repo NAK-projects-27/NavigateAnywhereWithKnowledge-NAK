@@ -121,7 +121,7 @@ serve(async (req) => {
         
         // HERE'S THE SECRET API KEY!
         // Deno.env.get reads from Supabase Edge Function secrets
-        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+        'x-api-key': Deno.env.get('NAK-api-key') ?? '',
         
         // API version (required by Anthropic)
         'anthropic-version': '2023-06-01'

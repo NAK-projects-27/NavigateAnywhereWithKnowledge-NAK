@@ -51,21 +51,12 @@
    ============================================ */
 
 .chat-page {
-  /* Display as grid with 2 columns */
   display: grid;
-  
-  /* Left column: 280px wide */
-  /* Right column: takes remaining space */
   grid-template-columns: 280px 1fr;
-  
-  /* Full viewport height minus any header/nav */
-  height: calc(100vh - 56px);
-  
-  /* Gap between columns */
+  height: 100vh; /* ✅ Full viewport height */
   gap: 0;
-  
-  /* Background color */
   background: var(--bg-1);
+  overflow: hidden; 
 }
 
 /* ============================================
@@ -85,6 +76,7 @@
   
   /* Prevent scrolling on the sidebar itself */
   overflow: hidden;
+  height: 100vh;
 }
 
 /* Sidebar header (Back + New Chat buttons) */
@@ -98,18 +90,16 @@
   
   /* Border at bottom */
   border-bottom: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
 }
 
 /* List of conversations */
 .conversations-list {
-  /* Take up remaining space */
   flex: 1;
-  
-  /* Allow scrolling if many conversations */
   overflow-y: auto;
-  
-  /* Padding around list */
+  overflow-x: hidden; 
   padding: 12px;
+  min-height: 0; 
 }
 
 /* Individual conversation item */
@@ -233,15 +223,11 @@
    ============================================ */
 
 .chat-main {
-  /* Stack children vertically */
   display: flex;
   flex-direction: column;
-  
-  /* Take full height */
-  height: 100%;
-  
-  /* Prevent overflow */
-  overflow: hidden;
+  height: 100vh; 
+  overflow: hidden; 
+  position: relative;
 }
 
 /* Empty state in main area */
