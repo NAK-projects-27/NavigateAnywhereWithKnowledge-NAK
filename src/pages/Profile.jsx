@@ -2,7 +2,17 @@ import { useContext, useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import supabase from "../api/supabaseClient";
-import { User, Mail, Calendar, MapPin, LogOut, Edit2, Save, X, Sparkles } from "lucide-react";
+import { 
+  User, 
+  Mail, 
+  LogOut, 
+  Edit2, 
+  Save, 
+  X, 
+  MessageCircle,
+  Package,
+  ArrowLeft
+} from "lucide-react";
 import "../styles/global.css";
 
 export default function Profile() {
@@ -38,6 +48,7 @@ export default function Profile() {
         setFullName(data.full_name || ""); 
         setBio(data.bio || "");
       } else {
+        // Create new profile if doesn't exist
         const newProfile = { 
           id: user.id, 
           email: user.email, 
@@ -89,202 +100,243 @@ export default function Profile() {
     navigate("/"); 
   }
 
+  // Loading state
   if (loading) return (
     <div className="app-center">
-      <div style={{ textAlign:"center" }} className="card">
-        <div style={{ fontSize:18, fontWeight:700, marginBottom:8 }}>Loading profile…</div>
-        <div className="small" style={{ marginBottom:10 }}>Hang tight — fetching your data</div>
+      <div style={{ textAlign: "center" }} className="card">
         <div style={{ 
-          width:60, 
-          height:60, 
-          borderRadius:12, 
-          margin:"0 auto", 
-          background:"linear-gradient(90deg,var(--neon-cyan),var(--neon-indigo))", 
-          boxShadow:"0 10px 40px rgba(0,224,255,0.12)"
+          fontSize: 18, 
+          fontWeight: 700, 
+          marginBottom: 8 
+        }}>
+          Loading profile…
+        </div>
+        <div className="small" style={{ marginBottom: 10 }}>
+          Hang tight — fetching your data
+        </div>
+        <div style={{ 
+          width: 60, 
+          height: 60, 
+          borderRadius: 12, 
+          margin: "0 auto", 
+          background: "linear-gradient(90deg, var(--neon-cyan), var(--neon-indigo))", 
+          boxShadow: "0 10px 40px rgba(0,224,255,0.12)"
         }}/>
       </div>
     </div>
   );
 
   return (
-    <div style={{ padding:28 }}>
+    <div style={{ padding: 28, maxWidth: 1000, margin: "0 auto" }}>
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate("/")}
+        className="btn-ghost" 
+        style={{ marginBottom: 20 }}
+      >
+        <ArrowLeft size={16} /> Back to Home
+      </button>
+
+      {/* Header Card */}
       <div className="card">
         <div style={{ 
-          display:"flex", 
-          justifyContent:"space-between", 
-          alignItems:"center", 
-          marginBottom:18 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          marginBottom: 18,
+          flexWrap: "wrap",
+          gap: 16
         }}>
-          <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-            <div className="avatar">
-              {profile?.full_name?.[0] || <User size={44} />}
+          {/* User Info */}
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div className="avatar" style={{ width: 80, height: 80 }}>
+              {profile?.full_name?.[0]?.toUpperCase() || <User size={32} />}
             </div>
             <div>
-              <div style={{ fontWeight:800, fontSize:20 }}>
+              <div style={{ fontWeight: 800, fontSize: 24 }}>
                 {profile?.full_name || "Traveler"}
               </div>
-              <div className="small" style={{ marginTop:6 }}>
-                <Mail size={14} style={{ marginRight:8 }} /> 
+              <div className="small" style={{ 
+                marginTop: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 6
+              }}>
+                <Mail size={14} /> 
                 {user?.email}
+              </div>
+              <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                Member since {new Date(profile?.created_at).toLocaleDateString()}
               </div>
             </div>
           </div>
 
-          <div style={{ display:"flex", gap:10 }}>
+          {/* Action Buttons */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link to="/chat" className="btn">
+              <MessageCircle size={16} /> Start Planning
+            </Link>
             <button 
               onClick={() => setEditing(!editing)} 
               className="btn-ghost"
             >
-              <Edit2 size={16} /> {editing ? "Cancel" : "Edit"}
+              {editing ? <X size={16} /> : <Edit2 size={16} />}
+              {editing ? "Cancel" : "Edit"}
             </button>
             <button 
               onClick={handleLogout} 
               className="btn-ghost" 
-              style={{ color:"#ff9aa2", borderColor:"rgba(255,100,110,0.06)" }}
+              style={{ 
+                color: "#ff9aa2", 
+                borderColor: "rgba(255,100,110,0.06)" 
+              }}
             >
               <LogOut size={16} /> Logout
             </button>
           </div>
         </div>
 
-        <div className="profile-grid">
-          <div>
-            <div style={{ marginBottom:14 }} className="card">
-              <div style={{ fontWeight:700, marginBottom:6 }}>About</div>
-              <div className="small" style={{ color:"var(--muted)" }}>
-                {profile?.bio || "No bio set."}
-              </div>
-            </div>
-
-            <div className="card">
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-                <div className="stat">
-                  <div className="small">Trips</div>
-                  <div className="num">0</div>
-                </div>
-                <div className="stat">
-                  <div className="small">Saved</div>
-                  <div className="num">0</div>
-                </div>
-                <div className="stat" style={{ gridColumn:"1 / -1" }}>
-                  <div className="small">Member since</div>
-                  <div style={{ marginTop:6 }}>
-                    {new Date(profile?.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Bio Section */}
+        <div style={{ 
+          marginTop: 24,
+          padding: 16,
+          background: "rgba(255,255,255,0.02)",
+          borderRadius: 12,
+          border: "1px solid rgba(255,255,255,0.04)"
+        }}>
+          <div style={{ 
+            fontWeight: 700, 
+            marginBottom: 8,
+            fontSize: 14,
+            color: "var(--neon-cyan)"
+          }}>
+            About
           </div>
+          {editing ? (
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Tell us about yourself..."
+              style={{
+                width: "100%",
+                minHeight: 80,
+                padding: 12,
+                borderRadius: 8,
+                background: "rgba(6,9,16,0.45)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                color: "#e6eef6",
+                fontSize: 14,
+                fontFamily: "inherit",
+                resize: "vertical"
+              }}
+            />
+          ) : (
+            <div className="small" style={{ color: "var(--muted)" }}>
+              {profile?.bio || "No bio set. Click 'Edit' to add one."}
+            </div>
+          )}
+        </div>
 
+        {/* Edit Form */}
+        {editing && (
+          <form onSubmit={handleUpdate} style={{ marginTop: 20 }}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ 
+                display: "block", 
+                marginBottom: 8, 
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--neon-cyan)"
+              }}>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Your name"
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 8,
+                  background: "rgba(6,9,16,0.45)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  color: "#e6eef6",
+                  fontSize: 14
+                }}
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              className="btn"
+              disabled={loading}
+              style={{ opacity: loading ? 0.5 : 1 }}
+            >
+              <Save size={16} />
+              {loading ? "Saving..." : "Save Changes"}
+            </button>
+          </form>
+        )}
+      </div>
+
+      {/* My Saved Trips Section */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16
+        }}>
           <div>
-            {!editing && (
-              <div className="card">
-                <div style={{ fontWeight:700, marginBottom:8 }}>Your dashboard</div>
-                <div className="small" style={{ marginBottom:12 }}>
-                  Start planning a trip or discover places.
-                </div>
-                <div style={{ display:"flex", gap:10 }}>
-                 <Link to="/chat" className="btn">💬 Chat with NAK AI</Link>
-                  <button className="btn">Create Itinerary</button>
-                  <Link to="/destination/paris" className="btn-ghost">Explore Paris</Link>
-                </div>
-                
-                {/* Quick destination links */}
-                <div style={{ 
-                  marginTop: 16, 
-                  paddingTop: 16, 
-                  borderTop: "1px solid rgba(255,255,255,0.04)" 
-                }}>
-                  <div className="small" style={{ marginBottom: 8, fontWeight: 600 }}>
-                    ✈️ Popular Destinations:
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Link 
-                      to="/destination/paris" 
-                      className="btn-ghost" 
-                      style={{ fontSize: 13, padding: "6px 12px" }}
-                    >
-                      🗼 Paris
-                    </Link>
-                    <Link 
-                      to="/destination/tokyo" 
-                      className="btn-ghost" 
-                      style={{ fontSize: 13, padding: "6px 12px" }}
-                    >
-                      🗾 Tokyo
-                    </Link>
-                    <Link 
-                      to="/destination/london" 
-                      className="btn-ghost" 
-                      style={{ fontSize: 13, padding: "6px 12px" }}
-                    >
-                      🏰 London
-                    </Link>
-                    <Link 
-                      to="/destination/newyork" 
-                      className="btn-ghost" 
-                      style={{ fontSize: 13, padding: "6px 12px" }}
-                    >
-                      🗽 New York
-                    </Link>
-                    <Link 
-                      to="/destination/dubai" 
-                      className="btn-ghost" 
-                      style={{ fontSize: 13, padding: "6px 12px" }}
-                    >
-                      🏜️ Dubai
-                    </Link>
-                    <Link 
-                      to="/destination/bali" 
-                      className="btn-ghost" 
-                      style={{ fontSize: 13, padding: "6px 12px" }}
-                    >
-                      🏝️ Bali
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {editing && (
-              <form onSubmit={handleUpdate} className="card">
-                <div style={{ marginBottom:12 }}>
-                  <label className="small">Full name</label>
-                  <input 
-                    className="input" 
-                    value={fullName} 
-                    onChange={(e) => setFullName(e.target.value)} 
-                  />
-                </div>
-                <div style={{ marginBottom:12 }}>
-                  <label className="small">Bio</label>
-                  <textarea 
-                    className="input" 
-                    value={bio} 
-                    onChange={(e) => setBio(e.target.value)} 
-                    style={{ minHeight:120, resize:"vertical" }} 
-                  />
-                </div>
-                <div style={{ display:"flex", gap:12 }}>
-                  <button 
-                    className="btn" 
-                    type="submit" 
-                    disabled={loading}
-                  >
-                    <Save size={14} /> Save
-                  </button>
-                  <button 
-                    className="btn-ghost" 
-                    type="button" 
-                    onClick={() => setEditing(false)}
-                  >
-                    <X size={14} /> Cancel
-                  </button>
-                </div>
-              </form>
-            )}
+            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 4 }}>
+              My Saved Trips
+            </div>
+            <div className="small" style={{ color: "var(--muted)" }}>
+              Trips you've saved from chat conversations
+            </div>
           </div>
         </div>
+
+        {/* Empty State */}
+        <div style={{ 
+          textAlign: "center",
+          padding: "60px 20px",
+          background: "rgba(0,224,255,0.02)",
+          borderRadius: 12,
+          border: "1px dashed rgba(0,224,255,0.1)"
+        }}>
+          <Package size={48} style={{ 
+            color: "var(--neon-cyan)", 
+            margin: "0 auto 16px",
+            opacity: 0.4
+          }} />
+          <div style={{ 
+            fontSize: 18, 
+            fontWeight: 700, 
+            marginBottom: 8,
+            color: "#eaf6ff"
+          }}>
+            No trips saved yet
+          </div>
+          <div className="small" style={{ 
+            color: "var(--muted)",
+            marginBottom: 20
+          }}>
+            Start planning a trip in chat and click "Save Trip" to add it here
+          </div>
+          <Link to="/chat" className="btn">
+            <MessageCircle size={16} />
+            Start Planning
+          </Link>
+        </div>
+
+        {/* TODO: When trips exist, show TripCard components here */}
+        {/* Example:
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+          {trips.map(trip => <TripCard key={trip.id} trip={trip} />)}
+        </div>
+        */}
       </div>
     </div>
   );
