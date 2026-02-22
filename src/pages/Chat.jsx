@@ -34,15 +34,30 @@ export default function Chat(){
             .eq('user_id',user.id)
             .order('updated_at', {ascending: false});
 
-            if(error) throw error;
+            if(error) {
+                console.error('Error loading conversations:', error);
+                throw error;
+            }
+            
+            console.log('Loaded conversations:', data); // Debug log
             setConversations(data || []);
 
-            if(data && data.length > 0){
+            // Only set current conversation if we don't have one selected or it doesn't exist
+            if(data && data.length > 0 && !currentConversationId){
                 setCurrentConversationID(data[0].id);
+            } else if (data && data.length > 0 && currentConversationId) {
+                // Check if current conversation still exists
+                const exists = data.find(c => c.id === currentConversationId);
+                if (!exists) {
+                    setCurrentConversationID(data[0].id);
+                }
+            } else if (!data || data.length === 0) {
+                setCurrentConversationID(null);
             }
 
         }catch(err){
             console.error('Error loading conversations:', err);
+            alert('Failed to load conversations. Please refresh the page.');
         }finally{
             setLoading(false);
         }
@@ -63,14 +78,18 @@ export default function Chat(){
             .select()
             .single();
 
-            if(error) throw error;
+            if(error) {
+                console.error('Insert error:', error);
+                throw error;
+            }
 
+            console.log('Created new conversation:', data); // Debug log
             setConversations(prev => [data, ...prev]);
             setCurrentConversationID(data.id);
 
         }catch(err){
             console.error('Error creating conversation:', err);
-            alert('Failed to create new chat');
+            alert('Failed to create new chat. Please try again.');
         }
     }
 
@@ -80,6 +99,8 @@ export default function Chat(){
         }
         
         try{
+            console.log('Attempting to delete conversation:', conversationId); // Debug log
+
             // First, delete all messages in this conversation
             const {error: messagesError} = await supabase
                 .from('messages')
@@ -88,20 +109,25 @@ export default function Chat(){
 
             if(messagesError) {
                 console.error('Error deleting messages:', messagesError);
-                // Continue anyway to try deleting the conversation
+                // Don't throw here, continue to try deleting the conversation
+            } else {
+                console.log('Messages deleted successfully');
             }
 
             // Then delete the conversation itself
-            const {error: convError} = await supabase
+            const {error: convError, data: deletedData} = await supabase
                 .from('conversations')
                 .delete()
                 .eq('id', conversationId)
-                .eq('user_id', user.id); // Extra security check
+                .eq('user_id', user.id)
+                .select(); // Add select to see what was deleted
 
-            if(convError) throw convError;
-         
-            // Update local state - use strict equality
-            setConversations(prev => prev.filter(c => c.id !== conversationId));
+            if(convError) {
+                console.error('Error deleting conversation:', convError);
+                throw convError;
+            }
+            
+            console.log('Deleted conversation data:', deletedData); // Debug log
 
             // If we deleted the current conversation, switch to another one
             if(currentConversationId === conversationId){
@@ -109,26 +135,41 @@ export default function Chat(){
                 setCurrentConversationID(remaining[0]?.id || null); 
             }
 
+            // Update local state - use strict equality
+            setConversations(prev => prev.filter(c => c.id !== conversationId));
+
             console.log('Conversation deleted successfully');
+
+            // Optionally reload conversations to ensure sync
+            // setTimeout(() => loadConversations(), 100);
 
         }catch(err){
             console.error('Error deleting conversation:', err);
-            alert('Failed to delete conversation. Please try again.');
+            alert(`Failed to delete conversation: ${err.message}. Please try again.`);
         }
     }
 
     // Function to update conversation title (call this from ChatInterface)
     async function updateConversationTitle(conversationId, newTitle) {
         try {
-            const {error} = await supabase
+            console.log('Updating title for conversation:', conversationId, 'to:', newTitle); // Debug log
+
+            const {error, data} = await supabase
                 .from('conversations')
                 .update({ 
                     title: newTitle,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', conversationId);
+                .eq('id', conversationId)
+                .eq('user_id', user.id) // Extra security check
+                .select(); // Add select to see what was updated
 
-            if(error) throw error;
+            if(error) {
+                console.error('Update title error:', error);
+                throw error;
+            }
+
+            console.log('Title updated successfully:', data); // Debug log
 
             // Update local state
             setConversations(prev => 
@@ -138,8 +179,13 @@ export default function Chat(){
                         : c
                 )
             );
+
+            // Reload conversations to ensure sync with database
+            await loadConversations();
+
         } catch(err) {
             console.error('Error updating title:', err);
+            alert(`Failed to update conversation title: ${err.message}`);
         }
     }
 
