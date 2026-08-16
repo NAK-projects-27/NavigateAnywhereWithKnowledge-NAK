@@ -1,32 +1,63 @@
 import { useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';              // ⬅ CHANGED: added (your ESLint config requires prop validation)
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-const InlineChatMap = ({ 
+const InlineChatMap = ({
     locations = [],
     center,
     zoom = 10,
     showRoute = false,
     mapStyle = 'dark-v11'
 }) => {
-    
-    
-    const mapContainerRef = useRef(null);  
-    const mapRef = useRef(null);           
-    
+
+    const mapContainerRef = useRef(null);
+    const mapRef = useRef(null);
+
     const [isLoading, setIsLoading] = useState(true);
-    const [routeInfo, setRouteInfo] = useState(null);  
+    const [routeInfo, setRouteInfo] = useState(null);
+    const [mapError, setMapError] = useState(null);   // ⬅ CHANGED: surface failures instead of a permanent "Loading map..."
+
+    // ⬅ CHANGED: Serialize object/array props into strings.
+    // React compares dependencies by reference. `locations` is a new array on every
+    // parent render, so the old dependency list re-ran this effect constantly —
+    // destroying and rebuilding the map on every keystroke in the chat textarea.
+    const locationsKey = JSON.stringify(locations);
+    const centerKey = JSON.stringify(center);
 
     useEffect(() => {
+        // ⬅ CHANGED: Fail loudly if the token is missing.
+        // Without this, Mapbox throws an unhelpful internal error.
+        const token = import.meta.env.VITE_MAPBOX_TOKEN;
+        if (!token) {
+            console.error('VITE_MAPBOX_TOKEN is not set in .env');
+            setMapError('Map unavailable — missing Mapbox token');
+            setIsLoading(false);
+            return;
+        }
+
+        if (!mapContainerRef.current) return;   // ⬅ CHANGED: guard against a missing container
+
+        // ⬅ CHANGED: Reset state when inputs change, so a previous route's
+        // distance/duration doesn't linger on a newly rendered map.
+        setIsLoading(true);
+        setRouteInfo(null);
+        setMapError(null);
+
+        // ⬅ CHANGED: Tracks whether this effect run is still current.
+        // Set to true by cleanup; every async continuation checks it before
+        // touching the map, which prevents "map is removed" crashes.
+        let cancelled = false;
+
         // Step 1: Set Mapbox token
-        mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+        mapboxgl.accessToken = token;
 
         // Step 2: Calculate map center
         let mapCenter = center;
         if (!mapCenter && locations.length > 0) {
             mapCenter = { lng: locations[0].lng, lat: locations[0].lat };
         } else if (!mapCenter) {
-            mapCenter = { lng: -95.7129, lat: 37.0902 };
+            mapCenter = { lng: -95.7129, lat: 37.0902 };  // geographic center of the US
         }
 
         // Step 3: Create the map
@@ -34,18 +65,30 @@ const InlineChatMap = ({
             container: mapContainerRef.current,
             style: `mapbox://styles/mapbox/${mapStyle}`,
             center: [mapCenter.lng, mapCenter.lat],
-            zoom: zoom,
-            attributionControl: false
+            zoom: zoom
+            // ⬅ CHANGED: removed `attributionControl: false`.
+            // Mapbox's free tier terms require visible attribution.
         });
 
         mapRef.current = map;
 
+        // ⬅ CHANGED: catch style/network failures so the UI can report them
+        map.on('error', (e) => {
+            console.error('Mapbox error:', e?.error || e);
+            if (!cancelled) {
+                setMapError('Map failed to load');
+                setIsLoading(false);
+            }
+        });
+
         // Step 4: Wait for map to load, then add content
         map.on('load', async () => {
-            
-           
+            if (cancelled) return;   // ⬅ CHANGED
+
+            // ==========================================
+            // ADD MARKERS for each location
+            // ==========================================
             locations.forEach((location, index) => {
-                // Create custom marker HTML
                 const markerElement = document.createElement('div');
                 markerElement.className = 'map-marker';
                 markerElement.innerHTML = `
@@ -67,10 +110,9 @@ const InlineChatMap = ({
                     </div>
                 `;
 
-                // Create popup with location name
-                const popup = new mapboxgl.Popup({ 
+                const popup = new mapboxgl.Popup({
                     offset: 25,
-                    closeButton: false 
+                    closeButton: false
                 }).setHTML(`
                     <div style="
                         padding: 8px;
@@ -81,7 +123,6 @@ const InlineChatMap = ({
                     </div>
                 `);
 
-                // Add marker to map
                 new mapboxgl.Marker(markerElement)
                     .setLngLat([location.lng, location.lat])
                     .setPopup(popup)
@@ -93,36 +134,38 @@ const InlineChatMap = ({
             // ==========================================
             if (showRoute && locations.length >= 2) {
                 try {
-                    // STEP 1: Build coordinates string for API
                     // Format: "lng1,lat1;lng2,lat2;lng3,lat3"
                     const coordinates = locations
                         .map(loc => `${loc.lng},${loc.lat}`)
                         .join(';');
 
-                    // STEP 2: Call Mapbox Directions API
-                    // ==================================
-                    // API Endpoint: /directions/v5/{profile}/{coordinates}
-                    // profile = driving, walking, cycling, driving-traffic
-                    const directionsUrl = 
+                    const directionsUrl =
                         `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}` +
-                        `?geometries=geojson` +        // Return route as GeoJSON
-                        `&overview=full` +             // Full route detail
-                        `&access_token=${mapboxgl.accessToken}`;
+                        `?geometries=geojson` +
+                        `&overview=full` +
+                        `&access_token=${token}`;
 
-                    console.log('Fetching route from:', directionsUrl);
+                    // ⬅ CHANGED: removed the console.log of directionsUrl.
+                    // It contained your access token in plain text in the browser console.
 
                     const response = await fetch(directionsUrl);
+
+                    // ⬅ CHANGED: check the HTTP status before parsing.
+                    // A bad token or malformed coords returns an error body, not a route.
+                    if (!response.ok) {
+                        throw new Error(`Mapbox Directions ${response.status}`);
+                    }
+
                     const data = await response.json();
 
-                    // STEP 3: Check if we got a route
+                    // ⬅ CHANGED: bail out if the component unmounted mid-fetch.
+                    // Without this, addSource/addLayer run against a destroyed map and throw.
+                    if (cancelled || !mapRef.current) return;
+
                     if (data.routes && data.routes.length > 0) {
                         const route = data.routes[0];
-                        
-                        // Extract route geometry (the line path)
                         const routeGeoJSON = route.geometry;
 
-                        // STEP 4: Add route as a SOURCE to the map
-                        // ========================================
                         // GeoJSON Source = data container for geographic features
                         map.addSource('route', {
                             type: 'geojson',
@@ -133,30 +176,28 @@ const InlineChatMap = ({
                             }
                         });
 
-                        // STEP 5: Add route as a LAYER to visualize it
-                        // ===========================================
                         // Layer = how the source data is displayed
                         map.addLayer({
                             id: 'route',
-                            type: 'line',              // Draw as a line
-                            source: 'route',           // Use the 'route' source we just added
+                            type: 'line',
+                            source: 'route',
                             layout: {
-                                'line-join': 'round',  // Smooth corners
-                                'line-cap': 'round'    // Rounded ends
+                                'line-join': 'round',
+                                'line-cap': 'round'
                             },
                             paint: {
-                                'line-color': '#0d3439',    
-                                'line-width': 4,             
-                                'line-opacity': 0.8         
+                                // ⬅ CHANGED: was '#0d3439', which is near-black and
+                                // invisible against the dark-v11 basemap.
+                                'line-color': '#00e0ff',
+                                'line-width': 5,
+                                'line-opacity': 0.9
                             }
                         });
 
-                        // STEP 6: Calculate and save route info
-                        // =====================================
-                        const distanceKm = (route.distance / 1000).toFixed(1);  // meters → km
-                        const distanceMiles = (route.distance * 0.000621371).toFixed(1);  // meters → miles
-                        const durationHours = (route.duration / 3600).toFixed(1);  // seconds → hours
-                        const durationMinutes = Math.round(route.duration / 60);  // seconds → minutes
+                        const distanceKm = (route.distance / 1000).toFixed(1);
+                        const distanceMiles = (route.distance * 0.000621371).toFixed(1);
+                        const durationHours = (route.duration / 3600).toFixed(1);
+                        const durationMinutes = Math.round(route.duration / 60);
 
                         setRouteInfo({
                             distanceKm,
@@ -164,56 +205,54 @@ const InlineChatMap = ({
                             durationHours,
                             durationMinutes
                         });
-
-                        console.log('Route drawn successfully!', {
-                            distance: `${distanceMiles} miles`,
-                            duration: `${durationHours} hours`
-                        });
                     }
 
                 } catch (error) {
                     console.error('Error fetching route:', error);
+                    if (!cancelled) setMapError('Could not calculate route');   // ⬅ CHANGED
                 }
             }
 
             // ==========================================
             // FIT MAP to show all markers
             // ==========================================
-            if (locations.length > 1) {
+            if (!cancelled && locations.length > 1) {   // ⬅ CHANGED: added cancelled check
                 const bounds = new mapboxgl.LngLatBounds();
                 locations.forEach(loc => {
                     bounds.extend([loc.lng, loc.lat]);
                 });
-                map.fitBounds(bounds, { 
+                map.fitBounds(bounds, {
                     padding: 50,
-                    maxZoom: 15  // Don't zoom in too close
+                    maxZoom: 15
                 });
             }
 
-            // Map is ready!
-            setIsLoading(false);
+            if (!cancelled) setIsLoading(false);   // ⬅ CHANGED
         });
 
         // CLEANUP - Remove map when component unmounts
-        // ============================================
         return () => {
+            cancelled = true;              // ⬅ CHANGED: stop any in-flight async work
             if (mapRef.current) {
                 mapRef.current.remove();
+                mapRef.current = null;     // ⬅ CHANGED: clear the ref so guards above work
             }
         };
-    }, [locations, center, zoom, showRoute, mapStyle]);
+    // ⬅ CHANGED: depend on the serialized strings, not the raw objects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locationsKey, centerKey, zoom, showRoute, mapStyle]);
 
     // ==========================================
-    // RENDER - What shows on screen
+    // RENDER
     // ==========================================
     return (
-        <div style={{ 
+        <div style={{
             position: 'relative',
             width: '100%',
             marginTop: '12px'
         }}>
             {/* Loading indicator */}
-            {isLoading && (
+            {isLoading && !mapError && (
                 <div style={{
                     position: 'absolute',
                     top: '50%',
@@ -227,10 +266,27 @@ const InlineChatMap = ({
                     Loading map...
                 </div>
             )}
-            
+
+            {/* ⬅ CHANGED: error state, so failures are visible instead of a stuck spinner */}
+            {mapError && (
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    color: '#ff6b8a',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    zIndex: 10,
+                    textAlign: 'center'
+                }}>
+                    {mapError}
+                </div>
+            )}
+
             {/* Map container */}
-            <div 
-                ref={mapContainerRef} 
+            <div
+                ref={mapContainerRef}
                 style={{
                     width: '100%',
                     height: '400px',
@@ -251,12 +307,13 @@ const InlineChatMap = ({
                     borderRadius: '8px',
                     display: 'flex',
                     gap: '24px',
+                    flexWrap: 'wrap',        // ⬅ CHANGED: keeps the panel readable on mobile
                     fontSize: '14px',
                     color: '#e6eef6'
                 }}>
                     <div>
-                        <span style={{ 
-                            color: 'var(--neon-cyan)', 
+                        <span style={{
+                            color: 'var(--neon-cyan)',
                             fontWeight: '600',
                             marginRight: '6px'
                         }}>
@@ -265,8 +322,8 @@ const InlineChatMap = ({
                         {routeInfo.distanceMiles} miles ({routeInfo.distanceKm} km)
                     </div>
                     <div>
-                        <span style={{ 
-                            color: 'var(--neon-cyan)', 
+                        <span style={{
+                            color: 'var(--neon-cyan)',
                             fontWeight: '600',
                             marginRight: '6px'
                         }}>
@@ -278,6 +335,22 @@ const InlineChatMap = ({
             )}
         </div>
     );
+};
+
+// ⬅ CHANGED: added PropTypes block
+InlineChatMap.propTypes = {
+    locations: PropTypes.arrayOf(PropTypes.shape({
+        lat: PropTypes.number.isRequired,
+        lng: PropTypes.number.isRequired,
+        name: PropTypes.string
+    })),
+    center: PropTypes.shape({
+        lat: PropTypes.number,
+        lng: PropTypes.number
+    }),
+    zoom: PropTypes.number,
+    showRoute: PropTypes.bool,
+    mapStyle: PropTypes.string
 };
 
 export default InlineChatMap;

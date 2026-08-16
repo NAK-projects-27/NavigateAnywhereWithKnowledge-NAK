@@ -89,16 +89,20 @@ export async function geocodeLocation(locationName) {
  * const locations = await geocodeMultipleLocations(["Dallas, TX", "Memphis, TN"]);
  */
 export async function geocodeMultipleLocations(locationNames) {
-    try {
-        // Use Promise.all to geocode all locations in parallel
-        // This is faster than doing them one at a time!
-        const promises = locationNames.map(name => geocodeLocation(name));
-        const results = await Promise.all(promises);
-        return results;
-    } catch (error) {
-        console.error('Batch geocoding error:', error);
-        throw error;
-    }
+    const settled = await Promise.allSettled(
+        locationNames.map(name => geocodeLocationCached(name))
+    );
+
+    const results = [];
+    settled.forEach((outcome, i) => {
+        if (outcome.status === 'fulfilled') {
+            results.push(outcome.value);
+        } else {
+            console.warn(`Could not geocode "${locationNames[i]}":`, outcome.reason?.message);
+        }
+    });
+
+    return results;
 }
 
 // ============================================
