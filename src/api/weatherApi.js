@@ -14,7 +14,7 @@
 // 3-hourly readings.
 // ============================================
 
-const WEATHER_TOKEN = import.meta.env.VITE_OPENWEATHER_KEY;
+const WEATHER_TOKEN = import.meta.env.VITE_openWeatherAPI;
 
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
