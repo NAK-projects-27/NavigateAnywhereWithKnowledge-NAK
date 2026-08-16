@@ -9,7 +9,7 @@
 
 import PropTypes from 'prop-types';
 import { User, Sparkles } from 'lucide-react';
-import InlineChatMap from './InlineChatMap';
+import ChatMapBlock from './ChatMapBlock';
 
 export default function MessageBubble({ role, content, timestamp }) {
     // STEP 1: Determine if this is a user or AI message
@@ -25,7 +25,7 @@ export default function MessageBubble({ role, content, timestamp }) {
         
         // Regular expression to find map JSON blocks
         // Matches: ```json:map ... ```
-        const mapRegex = /```json:map\n([\s\S]*?)```/g;
+        const mapRegex = /```json:map\s*\n([\s\S]*?)```/g;
         let match;
 
         // Find all map blocks in the message
@@ -161,6 +161,7 @@ export default function MessageBubble({ role, content, timestamp }) {
             </div>
 
             {/* Content - can include text and maps */}
+            {/* Content - can include text and maps */}
             <div>
                 {contentParts.map((part, index) => {
                     if (part.type === 'text') {
@@ -171,17 +172,8 @@ export default function MessageBubble({ role, content, timestamp }) {
                             </div>
                         );
                     } else if (part.type === 'map') {
-                        // Render interactive map
-                        return (
-                            <InlineChatMap
-                                key={index}
-                                locations={part.data.locations || []}
-                                center={part.data.center}
-                                zoom={part.data.zoom || 10}
-                                showRoute={part.data.showRoute || false}
-                                mapStyle={part.data.mapStyle || 'dark-v11'}
-                            />
-                        );
+                        // Render interactive map (geocodes names, then draws)
+                        return <ChatMapBlock key={index} data={part.data} />;
                     }
                     return null;
                 })}
