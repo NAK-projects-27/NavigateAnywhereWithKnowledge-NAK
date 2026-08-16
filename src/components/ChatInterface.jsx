@@ -121,12 +121,15 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
             // Step 5: Reload all messages from database to get real IDs
             await loadMessages();
 
-        }catch(err){
-            console.error('Error sending message:', err);
-            setError('Failed to send message. Please try again.');
-            // Remove temporary messages on error
-            setMessages(prev => prev.filter(m => !m.id.startsWith('temp-')));
-        }finally{
+            } catch (err) {
+                if (err.context) {
+                    const body = await err.context.json().catch(() => null);
+                    console.error('EDGE FUNCTION ERROR:', body);
+                }
+                console.error('Error sending message:', err);
+                setError('Failed to send message. Please try again.');
+                setMessages(prev => prev.filter(m => !m.id.startsWith('temp-')));
+                }finally{
             setLoading(false);
         }
     }

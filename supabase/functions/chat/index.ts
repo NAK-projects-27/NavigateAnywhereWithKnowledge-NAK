@@ -121,14 +121,14 @@ serve(async (req) => {
         
         // HERE'S THE SECRET API KEY!
         // Deno.env.get reads from Supabase Edge Function secrets
-        'x-api-key': Deno.env.get('NAK-api-key') ?? '',
+        'x-api-key': Deno.env.get('NAK_api_key') ?? '',
         
         // API version (required by Anthropic)
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
         // Which AI model to use
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         
         // Maximum length of response (in tokens)
         // 1024 tokens ≈ 750 words
@@ -226,11 +226,21 @@ Your response:
     // STEP 6: Parse Claude's response
     // --------------------------------------------
     // Convert response from JSON to JavaScript object
+    //const aiResponse = await response.json()
+    if (!response.ok) {
+    const errText = await response.text()
+    throw new Error(`Anthropic ${response.status}: ${errText}`)
+    }
+
     const aiResponse = await response.json()
+    const assistantMessage = aiResponse.content?.[0]?.text
+    if (!assistantMessage) {
+      throw new Error(`Unexpected response: ${JSON.stringify(aiResponse)}`)
+    }
     
     // Extract the actual message text
     // Claude returns: { content: [{ text: "Paris is..." }] }
-    const assistantMessage = aiResponse.content[0].text
+    //const assistantMessage = aiResponse.content[0].text
 
     // --------------------------------------------
     // STEP 7: Save user message to database
