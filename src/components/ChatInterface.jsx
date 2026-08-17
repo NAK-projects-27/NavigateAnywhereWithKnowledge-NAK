@@ -183,6 +183,7 @@ export default function ChatInterface({ conversationId, onTitleUpdate }) {
                         role={message.role}
                         content={message.content}
                         timestamp={message.created_at}
+                        conversationId={conversationId}
                     />
                 ))}
 

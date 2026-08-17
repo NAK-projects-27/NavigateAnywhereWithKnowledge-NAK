@@ -19,6 +19,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ChatMapBlock from './ChatMapBlock';
 import ChatWeatherBlock from './ChatWeatherBlock';
+import ChatItineraryBlock from './ChatItineraryBlock';
 
 // ============================================
 // BLOCK REGISTRY
@@ -26,6 +27,7 @@ import ChatWeatherBlock from './ChatWeatherBlock';
 const BLOCK_COMPONENTS = {
     map: ChatMapBlock,
     weather: ChatWeatherBlock,
+    itinerary: ChatItineraryBlock,
     // events: ChatEventsBlock,     <- on hold
     // budget: ChatBudgetBlock,     <- next
 };
@@ -172,7 +174,7 @@ const headingStyle = {
     color: '#eaf6ff'
 };
 
-export default function MessageBubble({ role, content, timestamp }) {
+export default function MessageBubble({ role, content, timestamp,conversationId }) {
     const isUser = role === 'user';
 
     // ============================================
@@ -347,7 +349,7 @@ export default function MessageBubble({ role, content, timestamp }) {
                     if (part.type === 'block') {
                         const BlockComponent = BLOCK_COMPONENTS[part.blockType];
                         if (!BlockComponent) return null;
-                        return <BlockComponent key={index} data={part.data} />;
+                        return <BlockComponent key={index} data={part.data} conversationId={conversationId} />;
                     }
 
                     return null;
@@ -361,4 +363,5 @@ MessageBubble.propTypes = {
     role: PropTypes.oneOf(['user', 'assistant']).isRequired,
     content: PropTypes.string.isRequired,
     timestamp: PropTypes.string,
+    conversationId: PropTypes.string,
 };
