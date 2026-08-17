@@ -1,5 +1,5 @@
 // ============================================
-// TripDetail.jsx - Read-only trip view
+// TripDetail.jsx - Trip view with AI editing
 // ============================================
 // Route: /trip/:id
 //
@@ -8,19 +8,23 @@
 //   - Save Trip trips: a flat destinations list
 // Whichever exists is what gets shown.
 //
-// PASS 1 IS READ-ONLY. Editing comes next.
+// The TripChat panel at the bottom lets the user edit the trip in
+// plain language. When it applies changes it calls `reload`, which
+// re-fetches without blanking the page or resetting the day tab.
 // ============================================
 
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     ArrowLeft, Calendar, Clock, MapPin, Trash2, MessageCircle,
     Utensils, Camera, Bed, Car, Ticket, Package
 } from 'lucide-react';
+import PropTypes from 'prop-types';
 import { AuthContext } from '../context/AuthContext';
 import { getTripDetail } from '../api/itineraryApi';
 import { deleteTrip } from '../api/tripsApi';
 import InlineChatMap from '../components/InlineChatMap';
+import TripChat from '../components/TripChat';
 import '../styles/global.css';
 
 const TYPE_ICONS = {
@@ -44,6 +48,28 @@ export default function TripDetail() {
     const [error, setError] = useState(null);
     const [openDay, setOpenDay] = useState(0);
 
+    // ============================================
+    // RELOAD
+    // ============================================
+    // CHANGED: extracted so TripChat can trigger a refresh after it
+    // applies edits. Deliberately does NOT touch setLoading or
+    // setOpenDay - a refresh after an edit shouldn't blank the page
+    // or throw the user back to Day 1.
+    const reload = useCallback(async () => {
+        try {
+            const data = await getTripDetail(id);
+            setTrip(data);
+        } catch (err) {
+            console.error('Reload failed:', err);
+        }
+    }, [id]);
+
+    // ============================================
+    // FIRST LOAD
+    // ============================================
+    // Separate from `reload` because this one owns the loading and
+    // error states, and resets the day tab when navigating between
+    // different trips.
     useEffect(() => {
         if (!user) {
             navigate('/auth');
@@ -52,10 +78,8 @@ export default function TripDetail() {
 
         let cancelled = false;
 
-        // The state updates live inside this function rather than in the
-        // effect body. Same behaviour, but it satisfies
-        // react-hooks/set-state-in-effect, which flags synchronous
-        // setState calls directly in an effect.
+        // State updates live inside this function rather than in the
+        // effect body, which satisfies react-hooks/set-state-in-effect.
         async function load() {
             setLoading(true);
             setError(null);
@@ -64,7 +88,7 @@ export default function TripDetail() {
                 const data = await getTripDetail(id);
                 if (!cancelled) {
                     setTrip(data);
-                    setOpenDay(0);   // reset tab when switching trips
+                    setOpenDay(0);
                 }
             } catch (err) {
                 console.error('Load trip failed:', err);
@@ -129,6 +153,7 @@ export default function TripDetail() {
     const destinations = trip.destinations || [];
     const hasItinerary = days.length > 0;
 
+    // Falls back to day 1 if the AI deleted the day currently in view
     const activeDay = days[openDay] || days[0];
 
     // Which points go on the map. For an itinerary that's the selected
@@ -432,6 +457,11 @@ export default function TripDetail() {
                     </div>
                 </div>
             )}
+
+            {/* ---------- EDIT WITH NAK ---------- */}
+            {/* CHANGED: new. No `trip &&` guard needed - an absent trip
+                already returned the error screen further up. */}
+            <TripChat trip={trip} onTripChanged={reload} />
         </div>
     );
 }
@@ -584,6 +614,13 @@ function ActivityTimeline({ activities, currency }) {
         </div>
     );
 }
+
+// CHANGED: added. ActivityTimeline previously had no prop validation,
+// which your ESLint config flags.
+ActivityTimeline.propTypes = {
+    activities: PropTypes.array.isRequired,
+    currency: PropTypes.string
+};
 
 // ============================================
 // HELPERS
