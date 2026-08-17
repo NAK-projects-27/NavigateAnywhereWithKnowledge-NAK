@@ -119,10 +119,13 @@ serve(async (req) => {
     }, null, 2)
 
     const messages = [
-      ...history.map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content
-      })),
+      ...history
+        .filter((m: { role: string }) =>
+          m.role === 'user' || m.role === 'assistant')
+        .map((m: { role: string; content: string }) => ({
+          role: m.role,
+          content: m.content
+        })),
       {
         role: 'user',
         content: `Here is the trip as it currently stands:

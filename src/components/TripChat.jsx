@@ -51,7 +51,7 @@ export default function TripChat({ trip, onTripChanged }) {
                     message: userMessage,
                     // Send prior turns so follow-ups like "actually make
                     // it 3pm" have something to refer back to.
-                    history: messages.slice(-6)
+                     history: buildHistory(messages)
                 }
             });
 
@@ -379,6 +379,35 @@ function extractBlock(text) {
         data,
         text: text.replace(match[0], '').trim()
     };
+}
+
+/**
+ * Turn the UI message list into something Anthropic will accept.
+ * Drops status rows, then collapses consecutive same-role messages so
+ * the user/assistant alternation the API requires is preserved.
+ */
+function buildHistory(messages) {
+    const conversation = messages.filter(
+        m => m.role === 'user' || m.role === 'assistant'
+    );
+
+    const alternating = [];
+    for (const message of conversation) {
+        const previous = alternating[alternating.length - 1];
+        if (previous && previous.role === message.role) {
+            // Merge rather than drop, so nothing is silently lost
+            previous.content += `\n\n${message.content}`;
+        } else {
+            alternating.push({ role: message.role, content: message.content });
+        }
+    }
+
+    // Anthropic requires the first message to be from the user
+    while (alternating.length > 0 && alternating[0].role !== 'user') {
+        alternating.shift();
+    }
+
+    return alternating.slice(-6);
 }
 
 TripChat.propTypes = {
