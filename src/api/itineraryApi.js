@@ -194,3 +194,66 @@ function addDays(dateString, days) {
     date.setDate(date.getDate() + days);
     return date.toISOString().slice(0, 10);
 }
+
+// ============================================
+// ADD THIS to the bottom of src/api/itineraryApi.js
+// ============================================
+
+/**
+ * Load everything about a trip in one query: its days, each day's
+ * activities, and any flat destinations.
+ *
+ * WHY BOTH SHAPES:
+ * There are two ways a trip gets created, and they write different
+ * tables:
+ *   - "Save Trip" in chat        -> writes destinations
+ *   - Saving an itinerary block  -> writes trip_days + activities
+ * The detail page has to render whichever it finds, so it asks for
+ * both rather than guessing.
+ *
+ * @param {string} tripId
+ * @returns {Promise<object>} trip with trip_days[] and destinations[]
+ */
+export async function getTripDetail(tripId) {
+    const { data, error } = await supabase
+        .from('trips')
+        .select(`
+            *,
+            trip_days (
+                id, day_number, date, title, notes,
+                activities (
+                    id, type, name, description,
+                    latitude, longitude, address,
+                    time_start, time_end,
+                    price, currency, booking_url, order_index
+                )
+            ),
+            destinations (
+                id, name, description, latitude, longitude, visit_date
+            )
+        `)
+        .eq('id', tripId)
+        .single();
+
+    if (error) throw error;
+
+    // Postgres gives no ordering guarantee on nested selects, so sort
+    // here rather than hoping rows arrive in a useful sequence.
+    if (data?.trip_days) {
+        data.trip_days.sort((a, b) => a.day_number - b.day_number);
+        data.trip_days.forEach(day => {
+            day.activities?.sort((a, b) => a.order_index - b.order_index);
+        });
+    }
+
+    if (data?.destinations) {
+        // visit_date can be null, so fall back to insertion-ish order
+        data.destinations.sort((a, b) => {
+            if (!a.visit_date) return 1;
+            if (!b.visit_date) return -1;
+            return a.visit_date.localeCompare(b.visit_date);
+        });
+    }
+
+    return data;
+}

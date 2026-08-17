@@ -9,6 +9,7 @@ import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { MapPin, Calendar, Trash2, MessageCircle } from 'lucide-react';
 
+
 export default function TripCard({ trip, onDelete }) {
     const destinations = trip.destinations || [];
 
@@ -37,7 +38,22 @@ export default function TripCard({ trip, onDelete }) {
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap'
                     }}>
-                        {trip.title}
+                        <Link
+                            to={`/trip/${trip.id}`}
+                            style={{
+                                fontSize: '17px',
+                                fontWeight: 700,
+                                color: '#eaf6ff',
+                                textDecoration: 'none',
+                                display: 'block',
+                                marginBottom: '3px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {trip.title}
+                        </Link>
                     </div>
 
                     {dateLabel && (
