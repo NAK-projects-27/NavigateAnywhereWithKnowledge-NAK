@@ -1,16 +1,14 @@
 // ============================================
 // ChatMapBlock.jsx
-// --------------------------------------------
-// Sits between MessageBubble and InlineChatMap.
+// ============================================
+// Turns place NAMES from the AI into coordinates, then hands them to
+// InlineChatMap.
 //
-// THE PROBLEM IT SOLVES:
-// Claude writes place NAMES ("Dallas, TX"). InlineChatMap needs
-// COORDINATES ({ lat: 32.7767, lng: -96.797 }). Claude cannot be
-// trusted to produce accurate coordinates - it will invent numbers
-// that look plausible but drift, especially for small towns.
-//
-// This component takes names, runs them through mapboxApi's
-// geocoder, and hands real coordinates to the map.
+// WHAT CHANGED FOR MULTI-ROUTE:
+// Previously this resolved one list of places. It now also handles a
+// "routes" array, geocoding every route's stops in one batch so
+// shared cities (all three routes start in Louisville) cost a single
+// lookup rather than three.
 // ============================================
 
 import { useEffect, useState } from 'react';
@@ -20,11 +18,10 @@ import { geocodeMultipleLocations } from '../api/mapboxApi';
 
 export default function ChatMapBlock({ data }) {
     const [locations, setLocations] = useState([]);
+    const [routes, setRoutes] = useState(null);
     const [isResolving, setIsResolving] = useState(true);
     const [error, setError] = useState(null);
 
-    // Serialize so the effect doesn't re-run on every parent render.
-    // Same reference-equality trap we fixed in InlineChatMap.
     const dataKey = JSON.stringify(data);
 
     useEffect(() => {
@@ -33,48 +30,65 @@ export default function ChatMapBlock({ data }) {
         async function resolve() {
             setIsResolving(true);
             setError(null);
+            setRoutes(null);
+            setLocations([]);
 
             try {
-                // CASE 1: message already has real coordinates - use as-is
+                // ---------- COMPARISON MODE ----------
+                if (Array.isArray(data.routes) && data.routes.length > 0) {
+                    // Cap at three. Four overlapping lines on one map is
+                    // unreadable and the colour palette runs out.
+                    const requested = data.routes.slice(0, 3);
+
+                    const resolvedRoutes = [];
+
+                    for (const route of requested) {
+                        const names = extractNames(route);
+                        if (names.length === 0) continue;
+
+                        // Sequential rather than parallel: the geocoder
+                        // caches by name, and routes usually share stops.
+                        // Running them in order lets later routes hit the
+                        // cache instead of racing on the same lookups.
+                        const stops = await geocodeMultipleLocations(names);
+                        if (cancelled) return;
+
+                        if (stops.length > 0) {
+                            resolvedRoutes.push({
+                                name: route.name || null,
+                                summary: route.summary || null,
+                                locations: stops,
+                                showRoute: route.showRoute !== false
+                            });
+                        }
+                    }
+
+                    if (resolvedRoutes.length === 0) {
+                        throw new Error('Could not find those places');
+                    }
+
+                    setRoutes(resolvedRoutes);
+                    return;
+                }
+
+                // ---------- SINGLE ROUTE (unchanged behaviour) ----------
                 const hasCoords =
                     Array.isArray(data.locations) &&
                     data.locations.length > 0 &&
                     typeof data.locations[0]?.lat === 'number';
 
                 if (hasCoords) {
-                    if (!cancelled) setLocations(data.locations);
+                    setLocations(data.locations);
                     return;
                 }
 
-                // CASE 2: build the list of place names to look up.
-                // Supports the shapes Claude might produce:
-                //   { places: ["Dallas, TX", "Memphis, TN"] }      <- preferred
-                //   { origin, destination, waypoints: [] }
-                let names = [];
-
-                if (Array.isArray(data.places)) {
-                    names = data.places;
-                } else {
-                    names = [
-                        data.origin,
-                        ...(data.waypoints || []),
-                        data.destination
-                    ].filter(Boolean);
-                }
-
-                // Fallback: locations given as bare strings or name-only objects
-                if (names.length === 0 && Array.isArray(data.locations)) {
-                    names = data.locations
-                        .map(loc => (typeof loc === 'string' ? loc : loc?.name))
-                        .filter(Boolean);
-                }
+                const names = extractNames(data);
 
                 if (names.length === 0) {
                     throw new Error('No places to show');
                 }
 
                 const resolved = await geocodeMultipleLocations(names);
-
                 if (cancelled) return;
 
                 if (resolved.length === 0) {
@@ -97,7 +111,6 @@ export default function ChatMapBlock({ data }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataKey]);
 
-    // Placeholder matches the map's height so chat doesn't jump
     if (isResolving) {
         return (
             <div style={{
@@ -134,11 +147,21 @@ export default function ChatMapBlock({ data }) {
         );
     }
 
-    // Default to showing a route whenever there are 2+ stops
-    const showRoute =
-        data.showRoute !== undefined
-            ? data.showRoute
-            : locations.length >= 2;
+    // Comparison mode
+    if (routes) {
+        return (
+            <InlineChatMap
+                routes={routes}
+                zoom={data.zoom || 6}
+                mapStyle={data.mapStyle || 'outdoors-v12'}
+            />
+        );
+    }
+
+    // Single route
+    const showRoute = data.showRoute !== undefined
+        ? data.showRoute
+        : locations.length >= 2;
 
     return (
         <InlineChatMap
@@ -149,6 +172,29 @@ export default function ChatMapBlock({ data }) {
             mapStyle={data.mapStyle || 'dark-v11'}
         />
     );
+}
+
+/** Pull place names out of the shapes Claude might produce. */
+function extractNames(source) {
+    if (Array.isArray(source.places)) {
+        return source.places.filter(Boolean);
+    }
+
+    const fromParts = [
+        source.origin,
+        ...(source.waypoints || []),
+        source.destination
+    ].filter(Boolean);
+
+    if (fromParts.length > 0) return fromParts;
+
+    if (Array.isArray(source.locations)) {
+        return source.locations
+            .map(loc => (typeof loc === 'string' ? loc : loc?.name))
+            .filter(Boolean);
+    }
+
+    return [];
 }
 
 ChatMapBlock.propTypes = {
