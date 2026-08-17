@@ -1,10 +1,11 @@
-import {useState, useEffect, useRef} from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import MessageBubble from './MessageBubble';
-import {Send, Loader} from 'lucide-react';
+import { Send, Loader } from 'lucide-react';
 import supabase from '../api/supabaseClient';
+import SaveTripButton from './SaveTripButton';
 
-export default function ChatInterface({conversationId, onTitleUpdate}){
+export default function ChatInterface({ conversationId, onTitleUpdate }) {
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(false);
@@ -15,34 +16,34 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
     useEffect(() => {
         loadMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    },[conversationId]);
+    }, [conversationId]);
 
     useEffect(() => {
         scrollToBottom();
-    },[messages]);
+    }, [messages]);
 
-    async function loadMessages(){
-        try{
-            const {data, error: fetchError} = await supabase
+    async function loadMessages() {
+        try {
+            const { data, error: fetchError } = await supabase
                 .from('messages')
                 .select('*')
                 .eq('conversation_id', conversationId)
-                .order('created_at', {ascending: true});
+                .order('created_at', { ascending: true });
 
-            if(fetchError) throw fetchError;
+            if (fetchError) throw fetchError;
             setMessages(data || []);
-            
+
             // If there are messages, assume title was generated
-            if(data && data.length > 0) {
+            if (data && data.length > 0) {
                 setTitleGenerated(true);
             }
-        } catch(err){
+        } catch (err) {
             console.error('Error loading messages:', err);
             setError('Failed to load messages');
         }
     }
 
-    function scrollToBottom(){
+    function scrollToBottom() {
         messagesEndRef.current?.scrollIntoView({
             behavior: 'smooth'
         });
@@ -50,9 +51,8 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
 
     // Generate title from first message
     function generateTitle(userMessage) {
-        // Take first 50 characters or up to first sentence
         let title = userMessage;
-        
+
         // If message is longer than 50 chars, cut it at a word boundary
         if (title.length > 50) {
             title = title.substring(0, 50);
@@ -62,18 +62,18 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
             }
             title += '...';
         }
-        
+
         // Capitalize first letter
         title = title.charAt(0).toUpperCase() + title.slice(1);
-        
+
         return title;
     }
 
     async function handleSendMessage(e) {
         e.preventDefault();
 
-        if(!inputText.trim()) return;
-        if(loading) return;
+        if (!inputText.trim()) return;
+        if (loading) return;
 
         const userMessage = inputText.trim();
         const isFirstMessage = messages.length === 0;
@@ -82,7 +82,7 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
         setLoading(true);
         setError(null);
 
-        try{
+        try {
             // Step 1: Add user message to UI immediately
             const tempUserMessage = {
                 id: 'temp-' + Date.now(),
@@ -100,14 +100,14 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
             }
 
             // Step 3: Call edge function to get AI response
-            const {data: aiResponse, error: aiError} = await supabase.functions.invoke('chat', {
+            const { data: aiResponse, error: aiError } = await supabase.functions.invoke('chat', {
                 body: {
                     message: userMessage,
                     conversationId: conversationId,
                 }
             });
-            
-            if(aiError) throw aiError;
+
+            if (aiError) throw aiError;
 
             // Step 4: Add AI response to UI
             const aiMessage = {
@@ -121,28 +121,48 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
             // Step 5: Reload all messages from database to get real IDs
             await loadMessages();
 
-            } catch (err) {
-                if (err.context) {
-                    const body = await err.context.json().catch(() => null);
-                    console.error('EDGE FUNCTION ERROR:', body);
-                }
-                console.error('Error sending message:', err);
-                setError('Failed to send message. Please try again.');
-                setMessages(prev => prev.filter(m => !m.id.startsWith('temp-')));
-                }finally{
+        } catch (err) {
+            // Surface the edge function's own error body - a bare 500
+            // tells you nothing, this tells you what actually failed.
+            if (err.context) {
+                const body = await err.context.json().catch(() => null);
+                console.error('EDGE FUNCTION ERROR:', body);
+            }
+            console.error('Error sending message:', err);
+            setError('Failed to send message. Please try again.');
+            setMessages(prev => prev.filter(m => !m.id.startsWith('temp-')));
+        } finally {
             setLoading(false);
         }
     }
 
-    function handleKeyPress(e){
-        if(e.key === 'Enter' && !e.shiftKey){
+    // CHANGED: onKeyPress is deprecated in React and doesn't fire for
+    // every key in all browsers. onKeyDown is the supported equivalent.
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSendMessage(e);
         }
     }
 
-    return(
+    // CHANGED: only offer Save Trip once the AI has actually replied.
+    // Saving an empty conversation produces a trip with no stops.
+    const hasAssistantReply = messages.some(m => m.role === 'assistant');
+
+    return (
         <div style={styles.container}>
+            {/* ---------- TOOLBAR ---------- */}
+            {/* CHANGED: only rendered once there's something worth saving,
+                so the button isn't sitting there greyed out on a new chat. */}
+            {hasAssistantReply && (
+                <div style={styles.toolbar}>
+                    <SaveTripButton
+                        conversationId={conversationId}
+                        conversationTitle={messages[0]?.content}
+                    />
+                </div>
+            )}
+
             <div style={styles.messagesArea}>
                 {messages.length === 0 && (
                     <div style={styles.emptyState}>
@@ -169,30 +189,30 @@ export default function ChatInterface({conversationId, onTitleUpdate}){
                         <span>NAK is thinking...</span>
                     </div>
                 )}
-        
+
                 {error && (
                     <div style={styles.errorMessage}>
                         {error}
                     </div>
                 )}
-        
+
                 {/* Invisible div at bottom - used for auto-scroll */}
                 <div ref={messagesEndRef} />
             </div>
-      
+
             {/* Input Area */}
             <form onSubmit={handleSendMessage} style={styles.inputForm}>
                 <textarea
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyDown}
                     placeholder="Ask NAK anything about travel..."
                     style={styles.input}
                     rows={1}
                     disabled={loading}
                 />
-        
-                <button 
+
+                <button
                     type="submit"
                     disabled={loading || !inputText.trim()}
                     style={{
@@ -216,43 +236,52 @@ const styles = {
     container: {
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',  
-        maxHeight: '100vh', 
-        overflow: 'hidden', 
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
     },
-  
+
+    // CHANGED: new style block for the Save Trip row.
+    // flexShrink: 0 keeps it from being squeezed by the messages area.
+    toolbar: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        padding: '10px 16px 0',
+        flexShrink: 0,
+    },
+
     messagesArea: {
         flex: 1,
-        overflowY: 'auto',  
-        overflowX: 'hidden', 
+        overflowY: 'auto',
+        overflowX: 'hidden',
         padding: '20px',
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
     },
-  
+
     emptyState: {
         textAlign: 'center',
         padding: '60px 20px',
     },
-  
+
     emptyIcon: {
         fontSize: '48px',
         marginBottom: '16px',
     },
-  
+
     emptyTitle: {
         fontSize: '20px',
         fontWeight: 700,
         marginBottom: '8px',
         color: '#eaf6ff',
     },
-  
+
     emptySubtitle: {
         fontSize: '14px',
         color: 'var(--muted)',
     },
-  
+
     loadingBubble: {
         alignSelf: 'flex-start',
         display: 'flex',
@@ -266,7 +295,7 @@ const styles = {
         fontSize: '14px',
         marginBottom: '14px',
     },
-  
+
     errorMessage: {
         padding: '12px 16px',
         borderRadius: '12px',
@@ -276,7 +305,7 @@ const styles = {
         fontSize: '14px',
         marginBottom: '14px',
     },
-  
+
     inputForm: {
         display: 'flex',
         gap: '12px',
@@ -285,7 +314,7 @@ const styles = {
         background: 'rgba(255,255,255,0.02)',
         flexShrink: 0,
     },
-  
+
     input: {
         flex: 1,
         padding: '12px 16px',
@@ -299,7 +328,7 @@ const styles = {
         maxHeight: '120px',
         outline: 'none',
     },
-  
+
     sendButton: {
         padding: '12px 16px',
         borderRadius: '12px',
