@@ -34,9 +34,12 @@ export default function ChatInterface({ conversationId, onTitleUpdate }) {
             setMessages(data || []);
 
             // If there are messages, assume title was generated
-            if (data && data.length > 0) {
-                setTitleGenerated(true);
-            }
+            setMessages(data || []);
+
+            // CHANGED: assign the boolean rather than only ever setting true.
+            // Without this, switching from an old conversation to a new one
+            // leaves the flag stuck on and the title never generates.
+            setTitleGenerated(!!(data && data.length > 0));
         } catch (err) {
             console.error('Error loading messages:', err);
             setError('Failed to load messages');

@@ -5,6 +5,7 @@ import ChatInterface from "../components/ChatInterface";
 import supabase from "../api/supabaseClient";
 import {MessageSquare, Plus, ArrowLeft, Trash2} from 'lucide-react';
 import '../styles/chat.css';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Chat(){
     const {user} = useContext(AuthContext);
@@ -12,6 +13,8 @@ export default function Chat(){
     const [conversations, setConversations] = useState([]);
     const [currentConversationId, setCurrentConversationID] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [searchParams] = useSearchParams();
+    const conversationFromUrl = searchParams.get('conversation');
 
     useEffect(() => {
         if(!user){
@@ -43,9 +46,17 @@ export default function Chat(){
             setConversations(data || []);
 
             // Only set current conversation if we don't have one selected or it doesn't exist
-            if(data && data.length > 0 && !currentConversationId){
+            // If the URL names a conversation and it belongs to this user,
+            // open it. This is how the "Open the chat" link on a trip card
+            // gets you back to where the trip came from.
+            const urlMatch = conversationFromUrl
+                && data?.find(c => c.id === conversationFromUrl);
+
+            if (urlMatch) {
+                setCurrentConversationID(conversationFromUrl);
+            } else if(data && data.length > 0 && !currentConversationId){
                 setCurrentConversationID(data[0].id);
-            } else if (data && data.length > 0 && currentConversationId) {
+            } else if (data && data.length > 0 && currentConversationId){
                 // Check if current conversation still exists
                 const exists = data.find(c => c.id === currentConversationId);
                 if (!exists) {
